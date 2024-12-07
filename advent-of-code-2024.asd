@@ -6,7 +6,7 @@
   :license  "N/A"
   :version "0.0.1"
   :serial t
-  :depends-on (#:arrows #:cl-ppcre)
+  :depends-on (#:uiop #:arrows #:cl-ppcre #:cl-advent-of-code)
   :components ((:module "src"
                 :serial t
                 :components
