@@ -15,7 +15,8 @@
                  (:module "days"
                   :serial t
                   :components
-                  ((:file "day-01")))
+                  ((:file "day-01")
+                   (:file "day-02")
                  (:file "advent-of-code-2024"))))
   :long-description
   #.(uiop:read-file-string
