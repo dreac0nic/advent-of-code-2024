@@ -28,7 +28,8 @@
   (every #'identity
          (funcall (juxt (lambda (ratings) (every (compose (lambda (x) (and (> x 0) (<= x 3))) #'abs) ratings))
                         (lambda (ratings) (every (if (plusp (car ratings)) #'plusp #'minusp) ratings)))
-                  (rate-report-values report))))
+                  report)))
+
 
 (defun get-report-slope (report)
   (signum (- (/ (reduce #'+ report)
@@ -36,35 +37,65 @@
              (car report))))
 
 
-(defun simulate-report-p (report)
-  (loop :with oopsie := nil
-        :with slope := (get-report-slope report)
-        :with from := (- (car report) slope)
-        :for to :in report
-        :for rank := (- to from)
-        :if (or (not (= (signum rank) slope))
-                (<= (abs rank) 0)
-                (> (abs rank) 3))
-          :do (if (not oopsie)
-                  (setf oopsie t)
-                  (return))
+(defun rating-safe-p (rating slope)
+  (and (= (signum rating) slope)
+       (> (abs rating) 0)
+       (<= (abs rating) 3)))
+
+
+(defun add-error (ratings error-pos)
+  (loop :for rating :in ratings
+        :for index :from 0
+        :with skew := nil
+        :if (= index error-pos)
+          :do (setf skew rating)
         :else
-          :do
-             (setf from to)
-        :finally (return t)))
+          :collect (if (numberp skew)
+                       (prog1
+                           (+ skew rating)
+                         (setf skew nil))
+                       rating)))
 
-;; FIXME: Doesn't work
-;; probably need to iterate by retaining the "previous" number and iterating by 1; this way we can handle the case when we need to "skip" a bad result, but still keep the previous number for testing
-;; by iterating using a second value, we skip the left side value when correcting for the error
 
-;; XXX: bad fixme attempt ^^^^^^
-;; need to be able to look ahead as wel as behind
-;; also something is super screwed
+;; (let* ((og '(8 6 4 4 1))
+;;        (og-ratings (rate-report-values og))
+;;        (flipped (reverse og-ratings))
+;;        (og-pos (position-if (compose #'not
+;;                                      (rcurry #'rating-safe-p
+;;                                              (signum (reduce #'+ (mapcar #'signum og-ratings)))))))
+;;        (flipped-pos (- (count og-ratings) 1 og-pos)))
+;;   (values
+;;    (add-error og-ratings og-pos)
+;;    (add-error flipped flipped-pos)))
 
-;; TODO: Solve problem for first item
 
-;; (let ((reports (input->safety-reports *example*)))
-;;   (mapcar #'simulate-report-p reports))
+;; (let ((pos 0)
+;;       (data '(1 2 3 4 5 6 7)))
+;;   (elt (reverse data)
+;;        (- (length data) 1 pos)))
+
+
+(defun dampen-errors (ratings)
+  (if (not (is-report-safe-p ratings))
+      (let ((error-pos (position-if (compose #'not
+                                             (rcurry #'rating-safe-p
+                                                     (signum (reduce #'+ (mapcar #'signum ratings)))))
+                                    ratings)))
+        (if (numberp error-pos)
+            (if (not (= error-pos (- (length ratings) 1)))
+                (add-error ratings error-pos)
+                (reverse (add-error (reverse ratings) 0)))
+            ratings))
+      ratings))
+
+;; TODO: Go both ways, test each
+
+;; (->> (input->safety-reports *example*)
+;;      (mapcar #'rate-report-values)
+;;      (mapcar #'dampen-errors)
+;;      (mapcar #'is-report-safe-p)
+;;      (count t))-
+
 
 
 
@@ -77,6 +108,7 @@
        :year 2024)
       (:input-binding puzzle-input)
     (->> (input->safety-reports puzzle-input)
+         (mapcar #'rate-report-values)
          (mapcar #'is-report-safe-p)
          (count t)
          submit-part-one)))
@@ -89,6 +121,8 @@
        :year 2024)
       (:input-binding puzzle-input)
     (->> (input->safety-reports puzzle-input)
-         (mapcar #'simulate-report-p)
+         (mapcar #'rate-report-values)
+         (mapcar #'dampen-errors)
+         (mapcar #'is-report-safe-p)
          (count t)
          submit-part-two)))
