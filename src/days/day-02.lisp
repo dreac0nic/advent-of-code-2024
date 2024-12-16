@@ -37,6 +37,10 @@
              (car report))))
 
 
+(defun get-ratings-slope (ratings)
+  (signum (reduce #'+ (mapcar #'signum ratings))))
+
+
 (defun rating-safe-p (rating slope)
   (and (= (signum rating) slope)
        (> (abs rating) 0)
@@ -57,48 +61,12 @@
                        rating)))
 
 
-;; (let* ((og '(8 6 4 4 1))
-;;        (og-ratings (rate-report-values og))
-;;        (flipped (reverse og-ratings))
-;;        (og-pos (position-if (compose #'not
-;;                                      (rcurry #'rating-safe-p
-;;                                              (signum (reduce #'+ (mapcar #'signum og-ratings)))))))
-;;        (flipped-pos (- (count og-ratings) 1 og-pos)))
-;;   (values
-;;    (add-error og-ratings og-pos)
-;;    (add-error flipped flipped-pos)))
-
-
-;; (let ((pos 0)
-;;       (data '(1 2 3 4 5 6 7)))
-;;   (elt (reverse data)
-;;        (- (length data) 1 pos)))
-
-
 (defun dampen-errors (ratings)
-  (if (not (is-report-safe-p ratings))
-      (let ((error-pos (position-if (compose #'not
-                                             (rcurry #'rating-safe-p
-                                                     (signum (reduce #'+ (mapcar #'signum ratings)))))
-                                    ratings)))
-        (if (numberp error-pos)
-            (if (not (= error-pos (- (length ratings) 1)))
-                (add-error ratings error-pos)
-                (reverse (add-error (reverse ratings) 0)))
-            ratings))
-      ratings))
-
-;; TODO: Go both ways, test each
-
-;; (->> (input->safety-reports *example*)
-;;      (mapcar #'rate-report-values)
-;;      (mapcar #'dampen-errors)
-;;      (mapcar #'is-report-safe-p)
-;;      (count t))-
-
-
-
-
+  (let* ((safe-p (rcurry #'rating-safe-p (get-ratings-slope ratings)))
+         (error-pos (position-if (compose #'not safe-p) ratings)))
+    (or (every safe-p (add-error ratings error-pos))
+        (every safe-p (add-error (reverse ratings)
+                                 (- (length ratings) 1 error-pos))))))
 
 
 ;;; Part 1
@@ -122,7 +90,9 @@
       (:input-binding puzzle-input)
     (->> (input->safety-reports puzzle-input)
          (mapcar #'rate-report-values)
-         (mapcar #'dampen-errors)
-         (mapcar #'is-report-safe-p)
+         (mapcar (lambda (ratings)
+                   (if (is-report-safe-p ratings)
+                       t
+                       (dampen-errors ratings))))
          (count t)
          submit-part-two)))
